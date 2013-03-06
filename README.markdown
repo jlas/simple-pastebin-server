@@ -6,6 +6,7 @@ Strong point: simple, only one script, that's all, rely on the least thing.
 ## Features
 * Simple --- only one python script
 * supporting programming language highlighting.
+* support for naming pastes
 
 ## Usage
 ```bash

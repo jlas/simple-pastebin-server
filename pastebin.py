@@ -1,11 +1,10 @@
 #!/usr/bin/python
-#-*- coding: utf8 -*-
 
 #
-# Author: xumingmingv
+# Author: xumingmingv & jlas (http://www.juanl.org)
 # License: GPL
 # Version: 0.2
-# Homepage: http://github.com/xumingming/simple-pastebin-server/
+# Homepage: http://github.com/jlas/simple-pastebin-server/
 #
 # How to run:
 # 1. mkdir data
@@ -15,11 +14,16 @@
 import BaseHTTPServer
 from SimpleHTTPServer import SimpleHTTPRequestHandler
 
-import uuid
-import os
-import urllib
 import cgi
+import os
+import time
+import urllib
 
+
+DATA_FOLDER_NAME = "data"
+dir = os.path.dirname(__file__)
+DATA_FOLDER_PATH = os.path.join(dir, DATA_FOLDER_NAME)
+URL_DATA_FOLDER = "/" + DATA_FOLDER_NAME + "/"
 
 # the port to listen on
 HTTP_PORT = 8000
@@ -32,8 +36,10 @@ FORM = """
     </head>
     <body style="font-size: 50">
         <form action="/pasteit" method="POST">
+            <div class="name">Paste Name: <input type="text" name="name" size="60"></input></div>
             <textarea name="content" rows="20" class="content"></textarea>
-            <a href="javascript:document.forms[0].submit()" class="button">Paste</a>
+            <div class="button"><a href="javascript:document.forms[0].submit()">Paste</a></div>
+            <div class="button"><a href="%(DATA_FOLDER)s">Data</a></div>
         </form>
     </body>
 </html>
@@ -59,6 +65,7 @@ CONTENT_TEMPLATE = """
             <li><a class="lang_html" href="%(CONTEXT_PATH)s/html/%(PASTEBIN_FILE_NAME)s">Html</a></li>
             <li><a class="lang_cpp" href="%(CONTEXT_PATH)s/cpp/%(PASTEBIN_FILE_NAME)s">Cpp</a></li>
             <li><a class="plain" href="%(CONTEXT_PATH)s/plain/%(PASTEBIN_FILE_NAME)s">Plain</a></li>
+            <li><a class="plain" href="%(DATA_FOLDER)s">Data</a></li>
             <li><a class="last" href="%(CONTEXT_PATH)s/">More Paste</a></li>
         </ul>
         <br style="clear: both"/>
@@ -106,6 +113,13 @@ pre {
     border: 1px solid #C9D7F1;
     margin-top: -5px;
 }
+.name {
+    font-size: 16px;
+    margin-left: 10%;
+    margin-top: 1%;
+    border: 3px solid #000
+    font-family: 'Courier New', Arial;
+}
 .content {
     width: 80%;
     height: 80%;
@@ -117,12 +131,10 @@ pre {
 }
 
 .button {
-    display:block;
-    width:100px;
-    height:50px;
-    margin-left:45%;
+    float: left;
+    width: 50%;
+    text-align: center;
     font-weight: bold;
-    text-decoration: none;
 }
 
 .ul_parent {
@@ -141,10 +153,6 @@ pre {
 }
 """
 
-DATA_FOLDER_NAME = "data"
-DATA_FOLDER_PATH = "./" + DATA_FOLDER_NAME
-URL_DATA_FOLDER = "/" + DATA_FOLDER_NAME + "/"
-
 class MyHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         self.init_params()
@@ -156,7 +164,8 @@ class MyHandler(SimpleHTTPRequestHandler):
             self.end_headers()
 
             if self.path == "/":
-                self.wfile.write(FORM % {"CONTEXT_PATH": self.get_context_path()})
+                self.wfile.write(FORM % {"CONTEXT_PATH": self.get_context_path(),
+                                         "DATA_FOLDER": URL_DATA_FOLDER})
 
             # get the clean content: no html
             elif self.path.find("/plain/") == 0:
@@ -174,7 +183,8 @@ class MyHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(CONTENT_TEMPLATE % {"LANG": lang,
                     "CONTENT":cgi.escape(content),
                     "CONTEXT_PATH": self.get_context_path(),
-                    "PASTEBIN_FILE_NAME": self.pastebin_file_name})
+                    "PASTEBIN_FILE_NAME": self.pastebin_file_name,
+                    "DATA_FOLDER": URL_DATA_FOLDER})
 
             # no language is specified
             else:
@@ -187,7 +197,8 @@ class MyHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(CONTENT_TEMPLATE % {"LANG": "java",
                     "CONTENT":cgi.escape(content),
                     "CONTEXT_PATH": self.get_context_path(),
-                    "PASTEBIN_FILE_NAME": self.pastebin_file_name})
+                    "PASTEBIN_FILE_NAME": self.pastebin_file_name,
+                    "DATA_FOLDER": URL_DATA_FOLDER})
         else:
             if self.path == "/style.css":
                 self.log_request()
@@ -202,7 +213,21 @@ class MyHandler(SimpleHTTPRequestHandler):
         self.init_params()
 
         if self.path == "/pasteit":
-            filename = str(uuid.uuid1())
+            filename = self.params.get("name")
+            files = os.listdir(DATA_FOLDER_PATH)
+
+            # filename already exists, add date str to name
+            if filename in files:
+                filename += time.strftime('_%Y%m%d%H%M%S', time.localtime())
+
+            if not filename:
+                def f(x):
+                    try:
+                        return int(x)
+                    except:
+                        return -1
+                highest = max(map(f, files))
+                filename = str(highest+1)
             f = open(DATA_FOLDER_PATH + "/" + filename, "w")
             f.write(self.params["content"])
             f.close()
